@@ -33,6 +33,7 @@ function pullData(type,callback) {
 	function(data, response) {
 		switch (type) {
 			case "all":
+				data = getOpen(data);
 				eventEmitter.emit('ticket', data, callback);
 				eventEmitter.emit('permit', data, callback);
 				eventEmitter.emit('carpool', data, callback);

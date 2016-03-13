@@ -10,40 +10,17 @@ eventEmitter.on('ping', function(type, callback) {
 	uowAPI.pull(type, callback);
 });
 
-eventEmitter.on('ticket_data', function(data) {
-	eventEmitter.emit('tweet_ticket', data);
-	eventEmitter.emit('log', data); 
+eventEmitter.on('tweet', function(type, data) {
+	twitterBot.parking(type, data);
 });
 
-eventEmitter.on('carpool_data', function(data) {
-	eventEmitter.emit('tweet_carpool', data);
-	eventEmitter.emit('log', data); 
-});
-
-
-eventEmitter.on('tweet_ticket', function(data) {
-	twitterBot.ticket_parking(data);
-});
-
-eventEmitter.on('tweet_carpool', function(data) {
-	twitterBot.carpool_parking(data);
+eventEmitter.on('log', function(type, data) {
+	console.log('todo');
 });
 
 function recieve(type, response) {
-	switch (type) {
-		case "ticket":
-			eventEmitter.emit('ticket_data', response);
-			break
-		case "permit":
-			eventEmitter.emit('permit_data', response);
-			break
-		case "carpool":
-			eventEmitter.emit('carpool_data', response);
-			break
-		case "raw":
-			//no need for raw here
-			break
-	}
+	eventEmitter.emit('tweet', type, response);
+	eventEmitter.emit('log', type, response);
 }
 
 /*---*/
