@@ -25,13 +25,12 @@ function recieve(type, response) {
 
 /*---*/
 
-var minutes = 5;
+var minutes = 10;
 var interval = minutes * 60 * 1000;
 
-/*setInterval(function() {
+setInterval(function() {
 	// Hit the API
-	console.log("doing stuff");
-	eventEmitter.emit('ping');
-}, interval); */
+	console.log("Initial ping");
+	eventEmitter.emit('ping', 'all', recieve)
+}, interval);
 
-eventEmitter.emit('ping', 'all', recieve)

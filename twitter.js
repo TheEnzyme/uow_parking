@@ -34,7 +34,7 @@ eventEmitter.on('send_tweet', function (tweet) {
 	parkingBot.post('statuses/update', { status: tweet}, function(err, data, response) {
 		if (err) {
 			console.log(err);
-		} else { console.log(data); }
+		} else { console.log("Successful tweet!"); }
 	});
 });
 
