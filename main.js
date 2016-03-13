@@ -29,8 +29,10 @@ var minutes = 10;
 var interval = minutes * 60 * 1000;
 
 setInterval(function() {
-	// Hit the API
-	console.log("Initial ping");
-	eventEmitter.emit('ping', 'all', recieve)
+	var time = new Date();
+	if (time.getHours() < 19 && time.getHours() > 7) {
+		console.log("Initial ping");
+		eventEmitter.emit('ping', 'all', recieve);
+	} else {
+		console.log("After 7pm and before 7am");
 }, interval);
-

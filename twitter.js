@@ -48,7 +48,7 @@ eventEmitter.on('data_tweet', function(tweet, parking_data, parking_lot_name) {
 eventEmitter.on('angry_tweet', function(type, data) {
 	var total = 0;
 	for (var i=0; i < data.length; i++) { total += data[i] };
-	if (total < 50) {
+	if (total < config.angry_threshold) {
 		var tweet = formatDate() + ": "
 		switch (type) {
 			case "ticket":
@@ -62,7 +62,7 @@ eventEmitter.on('angry_tweet', function(type, data) {
 				break
 		}
 	}
-		//tweet = tweet + " " + config.hashtag;
+		tweet = tweet + " " + config.hashtag;
 		eventEmitter.emit('send_tweet', tweet);
 });
 
