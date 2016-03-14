@@ -14,6 +14,9 @@ var parkingBot = new Twit({
 	access_token_secret: config.access_token_secret,
 });
 
+var tweetCount = { 'ticket': 0, 'permit': 0, 'carpool': 0 }
+var tweetArray = [ "", "", "", "" ]
+
 /*---*/
 
 module.exports = {
@@ -21,12 +24,12 @@ module.exports = {
 };
 
 eventEmitter.on('ticket', function(array) {
-	var tweet_prototype = "Ticketed parking info - " + formatDate() + '\n';
+	var tweet_prototype = "Ticket:\n";
 
 	if (array.length == parking_lots.ticket_before_four.length) {
-		eventEmitter.emit('data_tweet', tweet_prototype, array, parking_lots.ticket_before_four);
+		eventEmitter.emit('data_tweet', 1, tweet_prototype, array, parking_lots.ticket_before_four);
 	} else {
-		eventEmitter.emit('data_tweet', tweet_prototype, array, parking_lots.ticket_after_four);
+		eventEmitter.emit('data_tweet', 1, tweet_prototype, array, parking_lots.ticket_after_four);
 	}
 });
 
@@ -38,32 +41,65 @@ eventEmitter.on('send_tweet', function (tweet) {
 	});
 });
 
-eventEmitter.on('data_tweet', function(tweet, parking_data, parking_lot_name) {
+eventEmitter.on('data_tweet', function(finalIndex, tweet, parking_data, parking_lot_name) {
 	for (i in parking_data) {
 		tweet = tweet + parking_lot_name[i] + ": " + parking_data[i] + "\n"
 	}
-	eventEmitter.emit('send_tweet', tweet);
+	// modify global tweet array
+	tweetArray[finalIndex] = tweet;
+	eventEmitter.emit('check_send');
+});
+
+eventEmitter.on('check_send', function() {
+	// if all array slots are full, emit send tweet
+	var filled = 0
+	for (i in tweetArray) {
+		if (tweetArray[i] != "")
+			filled += 1;
+	}
+
+	if (filled == tweetArray.length) {	
+		var finalTweet = tweetArray.join('')
+		eventEmitter.emit('send_tweet', finalTweet);
+		for (i in tweetArray) {
+			tweetArray[i] = "";
+		}
+	}
 });
 
 eventEmitter.on('angry_tweet', function(type, data) {
+	// make sure angry tweets only happen once after it fills up.
 	var total = 0;
 	for (var i=0; i < data.length; i++) { total += data[i] };
-	if (total < config.angry_threshold) {
-		var tweet = formatDate() + ": "
-		switch (type) {
-			case "ticket":
-				tweet = tweet + randomTweet(tweets.ticket)
-				break
-			case "permit":
-				tweet =  tweet + randomTweet(tweets.permit)
-				break
-			case "carpool":
-				tweet =  tweet + randomTweet(tweets.carpool)
-				break
-		}
+		
+	var tweet = formatDate() + ": "
+	switch (type) {
+		case "ticket":
+			tweet = tweet + randomTweet(tweets.ticket)
+			var tweet_count = tweetCount.ticket
+			break
+		case "permit":
+			tweet =  tweet + randomTweet(tweets.permit)
+			var tweet_count = tweetCount.permit
+			break
+		case "carpool":
+			tweet =  tweet + randomTweet(tweets.carpool)
+			var tweet_count = tweetCount.carpool
+			break
 	}
+
+	if (total <= config.angry_threshold) {
+	} else {
+		// resets the number of tweets allowed to be sent
+		// while under the threshold.
+		tweet_count = 0;
+	}
+
+	if (tweet_count <= 3 && total < config.angry_threshold) {
 		tweet = tweet + " " + config.hashtag;
 		eventEmitter.emit('send_tweet', tweet);
+		tweet_count += 1;
+	}
 });
 
 /*---*/
@@ -75,23 +111,24 @@ function randomTweet(array) {
 
 function formatDate() {
 	value = new Date;
+	var minutes = value.getMinutes();
+	if (minutes < 10) { minutes = "0"+minutes; }
 	return value.getDate() + "/" +  value.getMonth()+1 + " " 
-		+ value.getHours() + ":" + value.getMinutes();
+		+ value.getHours() + ":" + minutes;;
 }
 
 function parking(type, data) {
+	tweetArray[0] = formatDate() + "\n"
 	switch (type) {
 		case "ticket":
 			eventEmitter.emit('ticket', data);
-			break
+			break;
 		case "permit":
-			eventEmitter.emit('data_tweet', "Permit parking info - " 
-					+ formatDate() + '\n', data, parking_lots.permit);
-			break
+			eventEmitter.emit('data_tweet', 2, "Permit:\n", data, parking_lots.permit);
+			break;
 		case "carpool":
-			eventEmitter.emit('data_tweet', "Carpool parking info - " 
-					+ formatDate() + '\n', data, parking_lots.carpool);
-			break
+			eventEmitter.emit('data_tweet', 3, "Carpool:\n", data, parking_lots.carpool);
+			break;
 	}
 	eventEmitter.emit('angry_tweet', type, data);
 }
