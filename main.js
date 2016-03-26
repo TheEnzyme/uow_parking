@@ -25,17 +25,36 @@ function recieve(type, response) {
 
 /*---*/
 
-var minutes = 15;
-var interval = minutes * 60 * 1000;
+eventEmitter.on('hourly_timer', function () {
+	var interval = 60 * 60 * 1000;
+	setInterval(function() {
+		var time = new Date();
+		if (time.getHours() <= 19 && time.getHours() >= 7) {
+			console.log("Initial ping");
+			eventEmitter.emit('ping', 'all', recieve);
+		} else if (time.getHours() <= 7) {
+			// unregister timer and set new one
+			clearTimeout(this);
+			eventEmitter.emit('quarterly_timer');
+		}
+	}, interval);
+});
 
-setInterval(function() {
-	var time = new Date();
-	if (time.getHours() < 19 && time.getHours() >= 7) {
-		console.log("Initial ping");
-		eventEmitter.emit('ping', 'all', recieve);
-	} else {
-		console.log("After 7pm and before 7am");
-	}
-}, interval);
+
+eventEmitter.on('quarterly_timer', function () {
+	var interval = 15 * 60 * 1000;
+	setInterval(function() {
+		var time = new Date();
+		if (time.getHours() < 9 && time.getHours() >= 7) {
+			console.log("Initial ping");
+			eventEmitter.emit('ping', 'all', recieve);
+		} else if (time.getHours() >= 9) {
+			// unregister timer and set new one
+			clearTimeout(this);
+			eventEmitter.emit('hourly_timer');
+		}
+	}, interval);
+});
 
 console.log("starting up!");
+eventEmitter.emit('quarterly_timer');

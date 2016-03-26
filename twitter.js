@@ -34,7 +34,7 @@ eventEmitter.on('ticket', function(array) {
 });
 
 eventEmitter.on('send_tweet', function (tweet) {
-	parkingBot.post('statuses/update', { status: tweet}, function(err, data, response) {
+	parkingBot.post('statuses/update', { status: tweet }, function(err, data, response) {
 		if (err) {
 			console.log(err);
 		} else { console.log("Successful tweet!"); }
@@ -88,17 +88,16 @@ eventEmitter.on('angry_tweet', function(type, data) {
 			break
 	}
 
-	if (total <= config.angry_threshold) {
-	} else {
+	if (total > config.angry_threshold) {
 		// resets the number of tweets allowed to be sent
 		// while under the threshold.
 		tweet_count = 0;
 	}
 
-	if (tweet_count <= 3 && total < config.angry_threshold) {
+	if (tweet_count <= 2 && total < config.angry_threshold) {
+		tweet_count += 1;
 		tweet = tweet + " " + config.hashtag;
 		eventEmitter.emit('send_tweet', tweet);
-		tweet_count += 1;
 	}
 });
 
@@ -122,13 +121,15 @@ function parking(type, data) {
 	switch (type) {
 		case "ticket":
 			eventEmitter.emit('ticket', data);
+			eventEmitter.emit('angry_tweet', type, data);
 			break;
 		case "permit":
 			eventEmitter.emit('data_tweet', 2, "Permit:\n", data, parking_lots.permit);
+			// eventEmitter.emit('angry_tweet', type, data);
 			break;
 		case "carpool":
 			eventEmitter.emit('data_tweet', 3, "Carpool:\n", data, parking_lots.carpool);
+			eventEmitter.emit('angry_tweet', type, data);
 			break;
 	}
-	eventEmitter.emit('angry_tweet', type, data);
 }
