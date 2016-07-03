@@ -1,60 +1,66 @@
-var uowAPI = require('./api.js');
-var twitterBot = require ('./twitter.js');
+var tweet = require('./twitter');
 
-var events = require('events');
-var eventEmitter = new events.EventEmitter();
+var Client = require('node-rest-client').Client;
+var uowAPI = new Client();
 
 /*---*/
 
-eventEmitter.on('ping', function(type, callback) {
-	uowAPI.pull(type, callback);
-});
+function pull(type) {
+    return Promise.resolve(
+        uowAPI.get("https://api.uow.edu.au/parking/data/?array")
+        .then( (dataArray, response) => {
+            dataArray.filter(); // filter to parking lots that are open
+            dataArray = dataArray.map(data => ({ // make the data an array of id's, type and spots
+                id: data.id,
+                type: data.type,
+                spots: data.parks
+            }))
+            .then({
+                // not sure if correct
+                var ticket = dataArray.filter(data.type == 'ticket');
+                var carpool = dataArray.filter(data.type == 'carpool');
+                var permit = dataArray.filter(data.type == 'permit');
 
-eventEmitter.on('tweet', function(type, data) {
-	twitterBot.parking(type, data);
-});
-
-eventEmitter.on('log', function(type, data) {
-	console.log('todo');
-});
-
-function recieve(type, response) {
-	eventEmitter.emit('tweet', type, response);
-	eventEmitter.emit('log', type, response);
+                return {
+                    ticket,
+                    carpool,
+                    permit
+                };
+            });
+        });
+    );
 }
 
 /*---*/
 
-eventEmitter.on('hourly_timer', function () {
-	var interval = 60 * 60 * 1000;
-	setInterval(function() {
-		var time = new Date();
-		if (time.getHours() <= 19 && time.getHours() >= 7) {
-			console.log("Initial ping");
-			eventEmitter.emit('ping', 'all', recieve);
-		} else if (time.getHours() <= 7) {
-			// unregister timer and set new one
-			clearTimeout(this);
-			eventEmitter.emit('quarterly_timer');
-		}
-	}, interval);
-});
+function log(data) {
+    // to be replaced with putting the data into a database
+    console.log("Logging: ", data);
+}
 
+function handle(data) {
+    tweet(data);
+    log(data);
+}
 
-eventEmitter.on('quarterly_timer', function () {
-	var interval = 15 * 60 * 1000;
-	setInterval(function() {
-		var time = new Date();
-		if (time.getHours() < 9 && time.getHours() >= 7) {
-			console.log("Initial ping");
-			eventEmitter.emit('ping', 'all', recieve);
-		} else if (time.getHours() >= 9) {
-			// unregister timer and set new one
-			clearTimeout(this);
-			eventEmitter.emit('hourly_timer');
-		}
-	}, interval);
-});
+function ping() {
+    pull().then(results => {
+        handle(results);
+    });
+}
 
+function setTimer() {
+    let interval = 60 * 60 * 1000;
+
+    setInterval(() => {
+        var time = new Date();
+        if (time.getHours() <= 19 && time.getHours() >= 7) {
+            console.log("Pinging API");
+            handle(ping());
+        }
+    }, interval)
+}
+
+// Start Twitter bot
 console.log("starting up!");
-eventEmitter.emit('quarterly_timer');
+setTimer();
