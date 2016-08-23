@@ -1,14 +1,12 @@
 var Twit = require('twit');
 var config = require('./config.json');
+var parkingBot = require('./parkingBot');
 
 var angryTweets = require(config.tweet_file);
 
-var parkingBot = new Twit({
-    consumer_key: config.consumer_key,
-    consumer_secret: config.consumer_secret,
-    access_token: config.access_token,
-    access_token_secret: config.access_token_secret,
-});
+/*---*/
+
+//exports.tweet = tweet;
 
 /*---*/
 
@@ -39,17 +37,23 @@ function sendTweet(tweet) {
         } else {
             console.log("Successful tweet!");
         }
-    })
+    });
 }
 
-export default function tweet(data) {
-    if (data.ticket.parks  < config.angry_threshold ||
-        data.permit.parks  < config.angry_threshold ||
-        data.carpool.parks < config.angry_threshold
+export default function tweet(categories, data) {
+    {ticket, carpool, permit} = data;
+    // need to rewrite to reduce to total
+    if (ticket.parks.reduce((prev, curr) => prev + curr)  < config.angry_threshold ||
+        carpool.parks.reduce((prev, curr) => prev + curr)  < config.angry_threshold ||
+        permit.parks.reduce((prev, curr) => prev + curr)  < config.angry_threshold ||
     ) {
-        sendTweet(formatDate() + ": " + randomTweet(angryTweets));
+        sendTweet(formatDate() + ": " + randomTweet(angryTweets) + config.hashtag);
     }
 
+    switch (categories) {
+    }
+    // this also needs to become a reduce
+    
     data.map(category => format).then(formattedData => {
         sendTweet(formatDate() + ":\n" + formattedData);
     })

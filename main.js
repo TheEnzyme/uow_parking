@@ -1,34 +1,39 @@
 var tweet = require('./twitter');
 
+var flatten = require('lodash').flatten;
 var Client = require('node-rest-client').Client;
 var uowAPI = new Client();
+var parkingBot = require('./parkingBot')
 
 /*---*/
 
-function pull(type) {
-    return Promise.resolve(
-        uowAPI.get("https://api.uow.edu.au/parking/data/?array")
-        .then( (dataArray, response) => {
-            dataArray.filter(); // filter to parking lots that are open
-            dataArray = dataArray.map(data => ({ // make the data an array of id's, type and spots
-                id: data.id,
-                type: data.type,
-                spots: data.parks
-            }))
-            .then({
-                // not sure if correct
-                var ticket = dataArray.filter(data.type == 'ticket');
-                var carpool = dataArray.filter(data.type == 'carpool');
-                var permit = dataArray.filter(data.type == 'permit');
+var mentionStream = parkingBot.stream('user', { track: [ "UOWParking status" ] });
 
-                return {
-                    ticket,
-                    carpool,
-                    permit
-                };
-            });
-        });
-    );
+mentionStream.on('tweet', tweet => {
+    // get user, check which categories they want to check
+})
+
+/*---*/
+
+function pull(category, callback) {
+    uowAPI.get("https://api.uow.edu.au/parking/data/?array", (dataArray, response) => {
+        dataArray = flatten(dataArray.map(data => {
+            data.zones.forEach(zone => { zone.id = data.id });
+            data.zones = data.zones.filter(zone => zone.status != "after 4pm");
+            return data.zones.map(zone => ({
+                parks: zone.parks,
+                total: zone.total,
+                type: zone.type,
+                id: zone.id
+            }))
+        }));
+
+        callback({
+            ticket:  dataArray.filter(data => data.type === "ticket"),
+            carpool: dataArray.filter(data => data.type === "carpool"),
+            permit:  dataArray.filter(data => data.type === "permit")
+        })
+    })
 }
 
 /*---*/
@@ -38,17 +43,6 @@ function log(data) {
     console.log("Logging: ", data);
 }
 
-function handle(data) {
-    tweet(data);
-    log(data);
-}
-
-function ping() {
-    pull().then(results => {
-        handle(results);
-    });
-}
-
 function setTimer() {
     let interval = 60 * 60 * 1000;
 
@@ -56,11 +50,15 @@ function setTimer() {
         var time = new Date();
         if (time.getHours() <= 19 && time.getHours() >= 7) {
             console.log("Pinging API");
-            handle(ping());
+            pull(data => {
+                log(data);
+                tweet(data);
+            })
         }
     }, interval)
 }
 
 // Start Twitter bot
 console.log("starting up!");
-setTimer();
+pull('all', log);
+//setTimer();

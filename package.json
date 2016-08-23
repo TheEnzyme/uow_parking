@@ -1,0 +1,25 @@
+{
+  "name": "uow_parking",
+  "version": "1.0.0",
+  "description": "Tweets data about parking at UOW",
+  "main": "main.js",
+  "dependencies": {
+    "lodash": "^4.15.0",
+    "node-rest-client": "^2.0.1",
+    "twit": "^2.2.4"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ramblingenzyme/uow_parking.git"
+  },
+  "author": "ramblingenzyme",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ramblingenzyme/uow_parking/issues"
+  },
+  "homepage": "https://github.com/ramblingenzyme/uow_parking#readme"
+}
