@@ -3,14 +3,30 @@
   "version": "1.0.0",
   "description": "Tweets data about parking at UOW",
   "main": "main.js",
+  "babel": {
+    "presets": [
+      "latest",
+      "stage-2"
+    ],
+    "retainLines": true
+  },
   "dependencies": {
     "lodash": "^4.15.0",
     "node-rest-client": "^2.0.1",
+    "request": "^2.81.0",
+    "request-promise": "^4.1.1",
     "twit": "^2.2.4"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "babel-cli": "^6.23.0",
+    "babel-preset-env": "^1.2.1",
+    "babel-preset-es2017": "^6.22.0",
+    "babel-preset-latest": "^6.22.0",
+    "babel-preset-stage-2": "^6.22.0"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "babel src -d lib"
   },
   "repository": {
     "type": "git",
