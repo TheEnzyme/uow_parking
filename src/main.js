@@ -68,7 +68,12 @@ function formatCurrentDate() {
 
 function inUniHours() {
     const time = new Date();
-    return (time.getHours() <= 19 && time.getHours() >= 7)
+    return (
+        time.getHours() <= 19
+        && time.getHours() >= 7 // Between 7 am - 7 pm
+        && time.getDay > 0
+        && time.getDay < 6 // On a weekday
+    )
 }
 
 function sendTweet(status) {
@@ -93,7 +98,7 @@ function log(data) {
 function setTimer(interval, fn) {
     setInterval(
         () => {
-            if (inUniTimes()) {
+            if (inUniHours()) {
                 fn()
             }
         },
@@ -118,6 +123,8 @@ function main() {
         .then(tweet => sendTweet(tweet));
 }
 
-if (inUniTimes) {
+if (inUniHours()) {
     main()
+} else {
+    console.log("Out of uni hours")
 }
