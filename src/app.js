@@ -3,6 +3,7 @@ import Twit from 'twit';
 import request from 'request-promise';
 
 import config from './config.json';
+import tweetPrompts from './tweetPrompts.json';
 
 const parkingBot = new Twit({
     consumer_key: config.consumer_key,
@@ -16,7 +17,7 @@ function getOpenTypeOfParking(parkingLots, type) {
     return _.reduce(parkingLots, (acc, lotData, lotName) => {
         const status = _.get(lotData, `zones.${type}.status`, '')
 
-        if (status && status === 'open') {
+        if (status) {
             const finalLotData = _.get(lotData, `zones.${type}`)
             return _.concat(acc, [{ lotName, ...finalLotData }]);
         }
@@ -106,25 +107,75 @@ function setTimer(interval, fn) {
     );
 }
 
+function numOfFullParkingLots(parkingLots) {
+    return _.reduce(parkingLots, (acc, lotData) => {
+        if (lotData.parks === 0) {
+            return acc + 1;
+        }
+
+        return acc;
+    }, 0)
+}
+
+function generateDataTweet(sortedParking) {
+    const tweetBody = _.map(
+        sortedParking,
+        (data, name) => {
+            const tweets = data.map(value => parkingLotToString(value));
+            return `${name.toUpperCase()}:\n` + tweets.join('\n');
+        }
+    )
+    .join('\n\n');
+
+    return `${formatCurrentDate()}\n\n${tweetBody}`;
+}
+
+function generateAngryTweet(sortedParking) {
+    const numOfFullLots = _.reduce(
+        sortedParking,
+        (acc, data, key) => Object.assign({}, acc, {[key]: numOfFullParkingLots(data)}),
+        {}
+    )
+
+    if (_.reduce(numOfFullLots, (acc, val) => acc + val) > 3) {
+        const highest = _.reduce(numOfFullLots, (acc, val, key, data) => {
+            if (!acc) {
+                return key;
+            } else if (val > data.key) {
+                return key;
+            }
+
+            return acc;
+        }, '');
+
+        const index = Math.floor(Math.random() * tweetPrompts.highest.length)
+
+        return tweetPrompts.highest[index];
+
+    }
+
+    return undefined;
+}
+
 function main() {
     return getParkingData()
         .then(sortedParking => {
-            const tweetBody = _.map(
-                sortedParking,
-                (data, name) => {
-                    const tweets = data.map(value => parkingLotToString(value));
-                    return `${name.toUpperCase()}:\n` + tweets.join('\n');
-                }
-            )
-            .join('\n\n');
+            return [
+                generateDataTweet(sortedParking),
+                generateAngryTweet(sortedParking)
+            ];
 
-            return `${formatCurrentDate()}\n\n${tweetBody}`;
+
         })
-        .then(tweet => sendTweet(tweet));
+        .then(tweets => tweets.forEach(tweet => {
+            if (tweet) {
+                sendTweet(tweet)
+            }
+        }));
 }
 
-if (inUniHours()) {
+// if (inUniHours()) {
     main()
-} else {
-    console.log("Out of uni hours")
-}
+// } else {
+//     console.log("Out of uni hours")
+// }
