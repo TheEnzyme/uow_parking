@@ -1,9 +1,27 @@
-import _ from 'lodash';
+import fp from "lodash/fp"
 import Twit from 'twit';
 import request from 'request-promise';
 
 import config from './config.json';
-import tweetPrompts from './tweetPrompts.json';
+
+/*
+    Response = [ZoneObj]
+
+    Zone: {
+        zones: [Status],
+        id: string,
+        name: string
+    }
+
+    Status: {
+        status: string,
+        updated: date_string
+        name: string,
+        parks: number,
+        total: number,
+        id: number
+    }
+*/
 
 const parkingBot = new Twit({
     consumer_key: config.consumer_key,
@@ -13,169 +31,54 @@ const parkingBot = new Twit({
 });
 
 
-function getOpenTypeOfParking(parkingLots, type) {
-    return _.reduce(parkingLots, (acc, lotData, lotName) => {
-        const status = _.get(lotData, `zones.${type}.status`, '')
+const chunkTextForTwitter = fp.compose(fp.map(fp.join('')), fp.chunk(280))
 
-        if (status) {
-            const finalLotData = _.get(lotData, `zones.${type}`)
-            return _.concat(acc, [{ lotName, ...finalLotData }]);
-        }
+const formatMinutes = fp.compose(
+    (min) => (min < 10) ? `0${min}` : min,
+    time => time.getMinutes()
+)
 
-        return acc;
-    }, []);
-}
+const formatCurrentDate = (time) => `${time.getHours()}:${formatMinutes(time)}`;
+const prependTime = text => `${formatCurrentDate(new Date)}${text}`
 
-function findTypesOfParking(parkingLots) {
-    return _.reduce(parkingLots, (acc, lotData, lotName) => {
-        const types = _.keys(lotData.zones);
-        return _.union(acc, types);
-    }, [])
-}
+const groupToTweet = (text, val, key) => `${text}\n\n${fp.capitalize(key)}:\n${val}`
 
-function getParkingData() {
-    return request('https://api.uow.edu.au/parking/data')
-        .then(data => JSON.parse(data))
-        .then(data => {
-            const types = findTypesOfParking(data);
+const zoneToTweet = ({ id, status, parks, total }) => (status === "open")
+    ? `${id}: ${parks > 0 ? parks : 'Full'}`
+    : `${id}: Closed`
 
-            return _.reduce(types, (acc, type) => {
-                return Object.assign(
-                    {},
-                    acc,
-                    { [type]: getOpenTypeOfParking(data, type) }
-                )
-            }, {})
-        });
-}
+const groupValToText = fp.compose(fp.join('\n'), fp.map(zoneToTweet))
 
-function parkingLotToString(parkingLot) {
-    const tweet = `${parkingLot.lotName} ${parkingLot.parks}`
-    return tweet;
-}
+const addIdToZone = id => zone => ({ ...zone, id })
+const mapZoneToZones = ({ zones, id }) => fp.map(addIdToZone(id), zones)
 
-function formatMinutes(minuteValue) {
-    if (minuteValue < 10) {
-        return "0" + minuteValue;
-    }
+const uncappedReduce = fp.reduce.convert({ 'cap': false })
 
-    return minuteValue;
-}
+const constructTweets = fp.compose(
+    chunkTextForTwitter,
+    prependTime,
+    uncappedReduce(groupToTweet, ''),
+    fp.mapValues(groupValToText),
+    fp.groupBy(zone => zone.type),
+    fp.flatMap(mapZoneToZones),
+    JSON.parse, // can fail
+)
 
-function formatCurrentDate() {
-    const time = new Date;
-    return time.getHours() + ":" + formatMinutes(time.getMinutes());
-}
+const getParkingData = () => request('https://api.uow.edu.au/parking/data?array')
 
-function inUniHours() {
-    const time = new Date();
-    return (
-        time.getHours() <= 19
-        && time.getHours() >= 7 // Between 7 am - 7 pm
-        && time.getDay > 0
-        && time.getDay < 6 // On a weekday
-    )
-}
+const successFn = result => (fp.has('data.errors', result))
+    ? Promise.reject(result.data.errors)
+    : console.log('Success!')
 
-function sendTweet(status) {
-    return parkingBot.post('statuses/update', { status })
-        .then(result => {
-            if (_.get(result, 'data.errors', '')) {
-                return Promise.reject(result.data.errors);
-            }
-
-            console.log ('Successful tweet');
-        })
-        .catch(err => {
-            console.log('Error:', err);
-        })
-}
-
-function log(data) {
-    // to be replaced with putting the data into a database
-    console.log("Logging: ", data);
-}
-
-function setTimer(interval, fn) {
-    setInterval(
-        () => {
-            if (inUniHours()) {
-                fn()
-            }
-        },
-        interval * 60 * 1000 // pass in minutes, converted to milliseconds
-    );
-}
-
-function numOfFullParkingLots(parkingLots) {
-    return _.reduce(parkingLots, (acc, lotData) => {
-        if (lotData.parks === 0) {
-            return acc + 1;
-        }
-
-        return acc;
-    }, 0)
-}
-
-function generateDataTweet(sortedParking) {
-    const tweetBody = _.map(
-        sortedParking,
-        (data, name) => {
-            const tweets = data.map(value => parkingLotToString(value));
-            return `${name.toUpperCase()}:\n` + tweets.join('\n');
-        }
-    )
-    .join('\n\n');
-
-    return `${formatCurrentDate()}\n\n${tweetBody}`;
-}
-
-function generateAngryTweet(sortedParking) {
-    const numOfFullLots = _.reduce(
-        sortedParking,
-        (acc, data, key) => Object.assign({}, acc, {[key]: numOfFullParkingLots(data)}),
-        {}
-    )
-
-    if (_.reduce(numOfFullLots, (acc, val) => acc + val) > 3) {
-        const highest = _.reduce(numOfFullLots, (acc, val, key, data) => {
-            if (!acc) {
-                return key;
-            } else if (val > data.key) {
-                return key;
-            }
-
-            return acc;
-        }, '');
-
-        const index = Math.floor(Math.random() * tweetPrompts.highest.length)
-
-        return tweetPrompts.highest[index];
-
-    }
-
-    return undefined;
-}
+const sendTweet = (status) => parkingBot.post('statuses/update', { status })
+    .then(successFn)
+    .catch(console.log)
 
 function main() {
     return getParkingData()
-        .then(sortedParking => {
-            return [
-                generateDataTweet(sortedParking),
-                generateAngryTweet(sortedParking)
-            ];
-
-
-        })
-        .then(tweets => tweets.forEach(tweet => {
-            if (tweet) {
-                sendTweet(tweet)
-            }
-        }));
+        .then(constructTweets)
+        .then(fp.map(console.log))
+        // .then(fp.map(sendTweet))
 }
 
-// if (inUniHours()) {
-    main()
-// } else {
-//     console.log("Out of uni hours")
-// }
+main()
