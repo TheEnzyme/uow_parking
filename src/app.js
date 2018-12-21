@@ -77,8 +77,7 @@ const sendTweet = (status) => parkingBot.post('statuses/update', { status })
 function main() {
     return getParkingData()
         .then(constructTweets)
-        .then(fp.map(console.log))
-        // .then(fp.map(sendTweet))
+        .then(fp.map(sendTweet))
 }
 
 main()
