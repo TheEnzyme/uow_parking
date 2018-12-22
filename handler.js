@@ -7,6 +7,7 @@ const has = require("lodash/fp/has");
 const join = require("lodash/fp/join");
 const map = require("lodash/fp/map");
 const mapValues = require("lodash/fp/mapValues");
+const padCharsStart = require("lodash/fp/padCharsStart");
 const reduce = require("lodash/fp/reduce");
 
 const Twit = require('twit');
@@ -49,12 +50,11 @@ const parkingBot = new Twit({
 
 const chunkTextForTwitter = compose(map(join('')), chunk(280))
 
-const formatMinutes = compose(
-    (min) => (min < 10) ? `0${min}` : min,
-    time => time.getMinutes()
-)
+const to12HourTime = hours => hours % 12 || 12
+const formatHours = compose(to12HourTime, time => time.getHours())
+const formatMinutes = compose(padCharsStart('0', 2), time => time.getMinutes())
 
-const formatCurrentDate = (time) => time.getHours() + ':' + formatMinutes(time);
+const formatCurrentDate = (time) => formatHours(time) + ':' + formatMinutes(time);
 const prependTime = text => formatCurrentDate(new Date) + text;
 
 const groupToTweet = (text, val, key) => `${text}\n\n${capitalize(key)}:\n${val}`
