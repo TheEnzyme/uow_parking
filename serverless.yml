@@ -3,6 +3,7 @@ app: uow-parking
 tenant: ramblingenzyme
 provider:
   name: aws
+  memorySize: 128
   runtime: nodejs8.10
   region: ap-southeast-2
 

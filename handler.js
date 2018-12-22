@@ -15,25 +15,6 @@ const { promisify } = require('util')
 const request = require('request');
 const request_promise = promisify(request);
 
-/*
-    Response = [ZoneObj]
-
-    Zone: {
-        zones: [Status],
-        id: string,
-        name: string
-    }
-
-    Status: {
-        status: string,
-        updated: date_string
-        name: string,
-        parks: number,
-        total: number,
-        id: number
-    }
-*/
-
 const {
     CONSUMER_KEY,
     CONSUMER_SECRET,
