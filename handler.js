@@ -29,35 +29,40 @@ const parkingBot = new Twit({
     access_token_secret: ACCESS_SECRET,
 });
 
-const chunkTextForTwitter = compose(map(join('')), chunk(280))
+const chunkTextForTwitter = compose(map(join('')), chunk(280));
 
-const to12HourTime = hours => hours % 12 || 12
-const formatHours = compose(to12HourTime, time => time.getHours())
-const formatMinutes = compose(padCharsStart('0', 2), time => time.getMinutes())
+const to12HourTime = hours => hours % 12 || 12;
+const formatHours = compose(to12HourTime, time => time.getHours());
+const formatMinutes = compose(padCharsStart('0', 2), time => time.getMinutes());
 
-const formatCurrentDate = (time) => formatHours(time) + ':' + formatMinutes(time);
-const prependTime = text => formatCurrentDate(new Date) + text;
+const formatCurrentTime = (time) => formatHours(time) + ':' + formatMinutes(time);
+const prependTime = text => formatCurrentTime(new Date) + text;
 
-const groupToTweet = (text, val, key) => `${text}\n\n${capitalize(key)}:\n${val}`
+const groupToTweet = (tweet, lotCounts, parkingType) => `${tweet}
+
+${parkingType}:
+${lotCounts}`;
 
 const zoneToTweet = ({ id, status, parks, total }) => (status === "open")
     ? `${id}: ${parks > 0 ? parks : 'Full'}`
-    : `${id}: Closed`
+    : `${id}: Closed`;
+const groupValToText = compose(join('\n'), map(zoneToTweet));
 
-const groupValToText = compose(join('\n'), map(zoneToTweet))
-
-const addIdToZone = id => zone => ({ ...zone, id })
-const mapZoneToZones = ({ zones, id }) => map(addIdToZone(id), zones)
-
-const uncappedReduce = reduce.convert({ 'cap': false })
+const uncappedReduce = reduce.convert({ 'cap': false });
 
 const constructTweets = compose(
     chunkTextForTwitter,
     prependTime,
     uncappedReduce(groupToTweet, ''),
     mapValues(groupValToText),
-    groupBy(zone => zone.type),
-    flatMap(mapZoneToZones),
+);
+
+const addIdToZone = id => zone => ({ ...zone, id });
+const mapToZones = ({ zones, id }) => map(addIdToZone(id), zones);
+
+const groupParkingLots = compose(
+    groupBy(zone => capitalize(zone.type)),
+    flatMap(mapToZones),
     JSON.parse, // can fail
     resp => resp.body
 )
@@ -72,11 +77,10 @@ const sendTweet = (status) => parkingBot.post('statuses/update', { status })
     .then(successFn)
     .catch(console.log)
 
-exports.bot = (event) => {
-    return new Promise((resolve, reject) => {
-        getParkingData()
-            .then(constructTweets)
-            .then(map(sendTweet))
-            .then(resolve)
-    })
+exports.bot = (event, context, cb) => {
+    getParkingData()
+        .then(groupParkingLots)
+        .then(constructTweets)
+        .then(map(sendTweet))
+        .then(x => cb(null, x))
 }
